@@ -25,6 +25,7 @@ services:
     # network (redis:6379). Publishing an unauthenticated Redis on 0.0.0.0
     # is a footgun we refuse to ship. If you need host-side redis-cli, run
     #   docker exec -it omniroute-redis redis-cli
+    - "${REDIS_BIND_HOST:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     command: redis-server --save 60 1 --loglevel warning
@@ -34,9 +35,25 @@ services:
       timeout: 5s
       retries: 3
 
-  omniroute:
-    image: diegosouzapw/omniroute:latest
+  omniroute-base:
     container_name: omniroute
+    build:
+      context: .
+      target: runner-base
+      args:
+        OMNIROUTE_BASE_PATH: ${OMNIROUTE_BASE_PATH:-}
+    image: omniroute:base
+    ports:
+      # Loopback-only by default (#12568): with REQUIRE_API_KEY=false shipping
+      # as the .env.example default, an unqualified publish spec here binds
+      # 0.0.0.0 and exposes the anonymous /v1 LLM proxy on every LAN/WAN
+      # interface. Set APP_BIND_HOST=0.0.0.0 only once you've confirmed
+      # REQUIRE_API_KEY=true or an upstream reverse proxy enforces its own auth.
+      - "${APP_BIND_HOST:-127.0.0.1}:${DASHBOARD_PORT:-20128}:${DASHBOARD_PORT:-20128}"
+      - "${APP_BIND_HOST:-127.0.0.1}:${API_PORT:-20129}:${API_PORT:-20129}"
+      - "${APP_BIND_HOST:-127.0.0.1}:${LIVE_WS_PORT:-20132}:${LIVE_WS_PORT:-20132}"
+    profiles:
+      - base
     restart: unless-stopped
     stop_grace_period: 40s
     env_file: .env
@@ -44,6 +61,11 @@ services:
       - DATA_DIR=/app/data # Must match the volume mount below
       - OMNIROUTE_BASE_PATH=${OMNIROUTE_BASE_PATH:-}
       - REDIS_URL=redis://redis:6379
+      - PORT=${PORT:-20128}
+      - DASHBOARD_PORT=${DASHBOARD_PORT:-20128}
+      - API_PORT=${API_PORT:-20129}
+      - API_HOST=${API_HOST:-127.0.0.1}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     ports:
       # Loopback-only by default. Override APP_BIND_HOST in .env to expose.
       - "${APP_BIND_HOST:-127.0.0.1}:${DASHBOARD_PORT:-20128}:${DASHBOARD_PORT:-20128}"
