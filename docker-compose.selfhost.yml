@@ -37,17 +37,30 @@ services:
   omniroute:
     image: diegosouzapw/omniroute:latest
     container_name: omniroute
+    build:
+      context: .
+      target: runner-base
+      args:
+        OMNIROUTE_BASE_PATH: ${OMNIROUTE_BASE_PATH:-}
+    image: omniroute:base
+    ports:
+      # Loopback-only by default (#12568): with REQUIRE_API_KEY=false shipping
+      # as the .env.example default, an unqualified publish spec here binds
+      # 0.0.0.0 and exposes the anonymous /v1 LLM proxy on every LAN/WAN
+      # interface. Set APP_BIND_HOST=0.0.0.0 only once you've confirmed
+      # REQUIRE_API_KEY=true or an upstream reverse proxy enforces its own auth.
+      - "${APP_BIND_HOST:-127.0.0.1}:${DASHBOARD_PORT:-20128}:${DASHBOARD_PORT:-20128}"
+      - "${APP_BIND_HOST:-127.0.0.1}:${API_PORT:-20129}:${API_PORT:-20129}"
+      - "${APP_BIND_HOST:-127.0.0.1}:${LIVE_WS_PORT:-20132}:${LIVE_WS_PORT:-20132}"
+    profiles:
+      - base
     restart: unless-stopped
     stop_grace_period: 40s
     env_file: .env
     environment:
       - DATA_DIR=/app/data
       - REDIS_URL=redis://redis:6379
-    ports:
-      # Loopback-only by default. Override APP_BIND_HOST in .env to expose.
-      - "${APP_BIND_HOST:-127.0.0.1}:${DASHBOARD_PORT:-20128}:${DASHBOARD_PORT:-20128}"
-      - "${APP_BIND_HOST:-127.0.0.1}:${API_PORT:-20129}:${API_PORT:-20129}"
-      - "${APP_BIND_HOST:-127.0.0.1}:${LIVE_WS_PORT:-20132}:${LIVE_WS_PORT:-20132}"
+      - OMNIROUTE_BASE_PATH: ${OMNIROUTE_BASE_PATH:-}
     volumes:
       - ./data:/app/data
     depends_on:
