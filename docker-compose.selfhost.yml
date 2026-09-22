@@ -58,7 +58,7 @@ services:
     stop_grace_period: 40s
     env_file: .env
     environment:
-      - DATA_DIR=/app/data # Must match the volume mount below
+      - DATA_DIR=/app/data:rw # Must match the volume mount below
       - OMNIROUTE_BASE_PATH=${OMNIROUTE_BASE_PATH:-}
       - REDIS_URL=redis://redis:6379
       - PORT=${PORT:-20128}
@@ -72,7 +72,7 @@ services:
       - "${APP_BIND_HOST:-127.0.0.1}:${API_PORT:-20129}:${API_PORT:-20129}"
       - "${APP_BIND_HOST:-127.0.0.1}:${LIVE_WS_PORT:-20132}:${LIVE_WS_PORT:-20132}"
     volumes:
-      - ./data:/app/data
+      - ./data:/app/data:rw
     depends_on:
       redis:
         condition: service_healthy
